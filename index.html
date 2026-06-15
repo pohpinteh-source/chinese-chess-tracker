@@ -49,26 +49,46 @@ const API_URL = "https://script.google.com/macros/s/AKfycby8UlknONXQM9xr3sIc5Zuh
 function loadFromCloud(){
 
   fetch(API_URL)
-  .then(res=>res.json())
-  .then(data=>{
+.then(res=>res.json())
+.then(data=>{
 
-    records=[];
+  // ✅ LOAD GAME RECORDS
+  records = [];
 
-    for(let i=1;i<data.length;i++){
-      let r=data[i];
+  for(let i=1;i<data.game.length;i++){
+    let r = data.game[i];
 
-      records.push({
-        competition:r[0],
-        date:r[1],
-        game:Number(r[2]),
-        opponent:r[3],
-        result:r[4],
-        totalPlayers:Number(r[5])
-      });
-    }
+    records.push({
+      competition:r[0],
+      date:r[1],
+      game:Number(r[2]),
+      opponent:r[3],
+      result:r[4],
+      totalPlayers:Number(r[5])
+    });
+  }
 
-    saveLocal();
-    update();
+  // ✅ LOAD FINAL RESULTS
+  finalResults = {};
+
+  for(let i=1;i<data.final.length;i++){
+    let r = data.final[i];
+
+    let key = r[0] + "_" + r[1];
+
+    finalResults[key] = {
+      competition:r[0],
+      date:r[1],
+      points:Number(r[2]),
+      rank:r[3],
+      players:r[4]
+    };
+  }
+
+  saveLocal();
+  update();
+
+
 
     alert("Data refreshed ✅");
   });
@@ -199,7 +219,7 @@ function saveGame(){
   saveLocal();
   update();
 }
-``
+
 function editRecord(i){
 
   let r=records[i];
@@ -504,28 +524,46 @@ window.onload=()=>{
   }
 
   // ✅ AUTO LOAD FROM CLOUD
-  fetch(API_URL)
-  .then(res=>res.json())
-  .then(data=>{
+ fetch(API_URL)
+.then(res=>res.json())
+.then(data=>{
 
-    records=[];
+  // ✅ LOAD GAME RECORDS
+  records=[];
 
-    for(let i=1;i<data.length;i++){
-      let r=data[i];
+  for(let i=1;i<data.game.length;i++){
+    let r=data.game[i];
 
-      records.push({
-        competition:r[0],
-        date:r[1],
-        game:Number(r[2]),
-        opponent:r[3],
-        result:r[4],
-        totalPlayers:Number(r[5])
-      });
-    }
+    records.push({
+      competition:r[0],
+      date:r[1],
+      game:Number(r[2]),
+      opponent:r[3],
+      result:r[4],
+      totalPlayers:Number(r[5])
+    });
+  }
 
-    saveLocal();
-    update();
-  });
+  // ✅ LOAD FINAL RESULTS
+  finalResults={};
+
+  for(let i=1;i<data.final.length;i++){
+    let r=data.final[i];
+
+    let key = r[0] + "_" + r[1];
+
+    finalResults[key] = {
+      competition:r[0],
+      date:r[1],
+      points:Number(r[2]),
+      rank:r[3],
+      players:r[4]
+    };
+  }
+
+  saveLocal();
+  update();
+});
 };
 
 </script>
