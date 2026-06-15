@@ -1,0 +1,342 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+
+<style>
+body{font-family:Arial;background:#f2f2f2;padding:10px;}
+.card{background:white;padding:12px;margin-top:12px;border-radius:12px;}
+
+button{width:100%;padding:10px;margin-top:5px;border:none;border-radius:10px;cursor:pointer;}
+.primary{background:#2563eb;color:white;}
+.red{background:#dc2626;color:white;}
+.yellow{background:#facc15;color:black;}
+
+.green{color:#16a34a;font-weight:bold;}
+.orange{color:#f59e0b;font-weight:bold;}
+.redText{color:#dc2626;font-weight:bold;}
+
+table{width:100%;margin-top:10px;border-collapse:collapse;}
+td,th{border:1px solid #ccc;padding:6px;text-align:center;}
+.selected{background:#dbeafe;}
+
+input,select{
+  width:100%;
+  padding:8px;
+  margin-top:5px;
+  border-radius:8px;
+  border:1px solid #ccc;
+}
+
+.title{
+  display:flex;
+  align-items:center;
+  gap:10px;
+  font-size:22px;
+  font-weight:bold;
+}
+</style>
+
+<script>
+
+/* ✅ YOUR GOOGLE SHEET API (ALREADY FILLED) */
+const API_URL = "https://script.google.com/macros/s/AKfycbx4wxK3B9aRfBAYShK8iBGsdIYkzas8WYajg67qHt1m27gLk47vo_xty9pGlAKPKyvm/exec";
+
+let records = JSON.parse(localStorage.getItem("records")) || [];
+let finalResults = JSON.parse(localStorage.getItem("finalResults")) || {};
+let selectedIndex=-1;
+let selectedFinalKey=null;
+let lastSavedGameNumber = null;
+
+function saveLocal(){
+  localStorage.setItem("records", JSON.stringify(records));
+  localStorage.setItem("finalResults", JSON.stringify(finalResults));
+}
+
+/* ✅ NEW: SAVE TO CLOUD */
+function saveToCloud(){
+
+  let comp=competitionName.value.trim();
+  let date=competitionDate.value;
+  let game=Number(gameNumber.value);
+  let opp=opponent.value.trim();
+  let result=resultSelect.value;
+  let players=Number(totalPlayers.value)||0;
+
+  if(!comp||!date||!game||!opp){
+    alert("Fill all fields");
+    return;
+  }
+
+  fetch(API_URL,{
+    method:"POST",
+    body:JSON.stringify({
+      competition:comp,
+      date,
+      game,
+      opponent:opp,
+      result,
+      totalPlayers:players
+    })
+  })
+  .then(res=>res.text())
+  .then(()=>alert("Saved to cloud ✅"));
+}
+
+/* ✅ NEW: REFRESH FROM CLOUD */
+function loadFromCloud(){
+
+  fetch(API_URL)
+  .then(res=>res.json())
+  .then(data=>{
+
+    records=[];
+
+    for(let i=1;i<data.length;i++){
+      let r=data[i];
+
+      records.push({
+        competition:r[0],
+        date:r[1],
+        game:Number(r[2]),
+        opponent:r[3],
+        result:r[4],
+        totalPlayers:Number(r[5])
+      });
+    }
+
+    saveLocal();
+    update();
+    alert("Data refreshed ✅");
+
+  });
+}
+
+/* ✅ ALL YOUR ORIGINAL CODE BELOW (UNCHANGED) */
+
+function newGame(){
+  competitionName.value="";
+  competitionDate.value="";
+  totalPlayers.value="";
+  opponent.value="";
+  gameNumber.value=1;
+  resultSelect.value="win";
+
+  prediction.innerText="";
+  analysisName.value="";
+  analysisResult.innerHTML="";
+
+  updateFinalResult();
+}
+
+function saveGame(){
+
+  let comp=competitionName.value.trim();
+  let date=competitionDate.value;
+  let game=Number(gameNumber.value);
+  let opp=opponent.value.trim();
+
+  if(!comp||!date||!game||!opp){
+    alert("Fill all fields");
+    return;
+  }
+
+  if(lastSavedGameNumber !== null && game === lastSavedGameNumber){
+    let confirmSave = confirm("Game number same as previous. Continue?");
+    if(!confirmSave) return;
+  }
+
+  let dup=records.find(r =>
+    r.competition===comp &&
+    r.game===game &&
+    r.opponent===opp
+  );
+
+  if(dup){
+    alert("Duplicate");
+    return;
+  }
+
+  records.push({
+    competition:comp,
+    date,
+    game,
+    opponent:opp,
+    result:resultSelect.value,
+    totalPlayers:Number(totalPlayers.value)||0
+  });
+
+  lastSavedGameNumber = game;
+
+  saveLocal();
+  update();
+}
+
+function updateSummary(){
+
+  let total=records.length;
+  let win=records.filter(r=>r.result==="win").length;
+  let draw=records.filter(r=>r.result==="draw").length;
+  let lose=records.filter(r=>r.result==="lose").length;
+
+  summary.innerText=
+`Total: ${total}
+Win: ${win} (${((win/total||0)*100).toFixed(1)}%)
+Draw: ${draw} (${((draw/total||0)*100).toFixed(1)}%)
+Lose: ${lose} (${((lose/total||0)*100).toFixed(1)}%)`;
+}
+
+function predict(){
+
+  if(records.length===0){
+    prediction.innerText="";
+    return;
+  }
+
+  let comp = competitionName.value.trim();
+  let date = competitionDate.value;
+
+  let list = records.filter(r =>
+    r.competition===comp && r.date===date
+  );
+
+  let win=list.filter(r=>r.result==="win").length;
+  let draw=list.filter(r=>r.result==="draw").length;
+  let total=list.length;
+
+  let rate = total ? (win+draw*0.5)/total : 0;
+  let players = Number(totalPlayers.value)||30;
+
+  let base=(1-rate)*players;
+
+  prediction.innerText = `Rank Estimate: ${Math.round(base*0.85)} - ${Math.round(base*1.15)}`;
+}
+
+function analysis(){
+
+  let name = analysisName.value;
+  let list = records.filter(r=>r.opponent===name);
+
+  if(!list.length){
+    analysisResult.innerHTML="";
+    return;
+  }
+
+  let total = list.length;
+  let win = list.filter(r=>r.result==="win").length;
+  let draw = list.filter(r=>r.result==="draw").length;
+  let lose = list.filter(r=>r.result==="lose").length;
+
+  analysisResult.innerHTML =
+`<b>Name: ${name}</b><br><br>
+Game Play: ${total}<br>
+<span class="green">Win: ${win} | ${(win/total*100).toFixed(1)}%</span><br>
+<span class="orange">Draw: ${draw} | ${(draw/total*100).toFixed(1)}%</span><br>
+<span class="redText">Lose: ${lose} | ${(lose/total*100).toFixed(1)}%</span>`;
+}
+
+function clearAnalysis(){
+  analysisName.value="";
+  analysisResult.innerHTML="";
+}
+
+function update(){
+  updateSummary();
+  predict();
+
+  let html="";
+  records.forEach((r,i)=>{
+
+    let color =
+      r.result==="win"?"green":
+      r.result==="draw"?"orange":"redText";
+
+    html+=`
+<tr>
+<td>${r.competition}</td>
+<td>${r.date}</td>
+<td>${r.game}</td>
+<td>${r.opponent}</td>
+<td class="${color}">${r.result}</td>
+<td>${r.totalPlayers}</td>
+</tr>`;
+  });
+
+  gameTable.innerHTML=html;
+}
+
+window.onload=()=>{
+  for(let i=1;i<=15;i++){
+    gameNumber.innerHTML+=`<option>${i}</option>`;
+  }
+  update();
+};
+
+</script>
+
+</head>
+
+<body>
+
+<div class="title">
+  <div>Chess Tracker</div>
+</div>
+
+<div class="card">
+<h3>Summary</h3>
+<div id="summary"></div>
+</div>
+
+<div class="card">
+<input id="competitionName" placeholder="Competition">
+<input id="competitionDate" type="date">
+<input id="totalPlayers" placeholder="Players">
+
+<select id="gameNumber"></select>
+<input id="opponent" placeholder="Opponent">
+
+<select id="resultSelect">
+<option value="win">Win</option>
+<option value="draw">Draw</option>
+<option value="lose">Lose</option>
+</select>
+
+<button class="primary" onclick="saveGame()">Save Result</button>
+
+<!-- ✅ NEW CLOUD BUTTONS -->
+<button onclick="saveToCloud()">Save to Cloud</button>
+<button onclick="loadFromCloud()">Refresh Data</button>
+
+<button class="red" onclick="newGame()">New Game</button>
+</div>
+
+<div class="card">
+<h3>Prediction</h3>
+<p id="prediction"></p>
+</div>
+
+<div class="card">
+<h3>Opponent Analysis</h3>
+<input id="analysisName" oninput="analysis()" placeholder="Name">
+<button class="yellow" onclick="clearAnalysis()">Clear</button>
+<p id="analysisResult"></p>
+</div>
+
+<div class="card">
+<h3>Game Record</h3>
+
+<table>
+<thead>
+<tr>
+<th>Competition</th><th>Date</th><th>Game</th><th>Opponent</th><th>Result</th><th>Players</th>
+</tr>
+</thead>
+<tbody id="gameTable"></tbody>
+</table>
+
+</div>
+
+</body>
+</html>
+``
