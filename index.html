@@ -1,7 +1,6 @@
 <!DOCTYPE html>
 <html>
 <head>
-<meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 
 <style>
@@ -36,25 +35,17 @@ input,select{
   font-size:22px;
   font-weight:bold;
 }
+
+.icon{
+  font-size:28px;
+  color:#dc2626;
+}
 </style>
 
 <script>
 
-/* ✅ YOUR GOOGLE SHEET API (ALREADY FILLED) */
-const API_URL = "https://script.google.com/macros/s/AKfycbx4wxK3B9aRfBAYShK8iBGsdIYkzas8WYajg67qHt1m27gLk47vo_xty9pGlAKPKyvm/exec";
+const API_URL = "https://script.google.com/macros/s/AKfycbw0E2bu49FYgVczIdnJDJhzDW6xjg_ebQuXAF2rMhczVyYIhMoDoTiwTvf1nJQPbwJi/exec";
 
-let records = JSON.parse(localStorage.getItem("records")) || [];
-let finalResults = JSON.parse(localStorage.getItem("finalResults")) || {};
-let selectedIndex=-1;
-let selectedFinalKey=null;
-let lastSavedGameNumber = null;
-
-function saveLocal(){
-  localStorage.setItem("records", JSON.stringify(records));
-  localStorage.setItem("finalResults", JSON.stringify(finalResults));
-}
-
-/* ✅ NEW: SAVE TO CLOUD */
 function saveToCloud(){
 
   let comp=competitionName.value.trim();
@@ -63,11 +54,6 @@ function saveToCloud(){
   let opp=opponent.value.trim();
   let result=resultSelect.value;
   let players=Number(totalPlayers.value)||0;
-
-  if(!comp||!date||!game||!opp){
-    alert("Fill all fields");
-    return;
-  }
 
   fetch(API_URL,{
     method:"POST",
@@ -84,36 +70,18 @@ function saveToCloud(){
   .then(()=>alert("Saved to cloud ✅"));
 }
 
-/* ✅ NEW: REFRESH FROM CLOUD */
-function loadFromCloud(){
+let records = JSON.parse(localStorage.getItem("records")) || [];
+let finalResults = JSON.parse(localStorage.getItem("finalResults")) || {};
+let selectedIndex=-1;
+let selectedFinalKey=null;
 
-  fetch(API_URL)
-  .then(res=>res.json())
-  .then(data=>{
+// ✅ NEW: track last saved game number
+let lastSavedGameNumber = null;
 
-    records=[];
-
-    for(let i=1;i<data.length;i++){
-      let r=data[i];
-
-      records.push({
-        competition:r[0],
-        date:r[1],
-        game:Number(r[2]),
-        opponent:r[3],
-        result:r[4],
-        totalPlayers:Number(r[5])
-      });
-    }
-
-    saveLocal();
-    update();
-    alert("Data refreshed ✅");
-
-  });
+function saveLocal(){
+  localStorage.setItem("records", JSON.stringify(records));
+  localStorage.setItem("finalResults", JSON.stringify(finalResults));
 }
-
-/* ✅ ALL YOUR ORIGINAL CODE BELOW (UNCHANGED) */
 
 function newGame(){
   competitionName.value="";
@@ -142,8 +110,9 @@ function saveGame(){
     return;
   }
 
+  // ✅ NEW: warning if game number not changed
   if(lastSavedGameNumber !== null && game === lastSavedGameNumber){
-    let confirmSave = confirm("Game number same as previous. Continue?");
+    let confirmSave = confirm("⚠️ Game number is same as previous ("+game+").\nYou might have forgotten to change it.\n\nPress OK to continue or Cancel to change it.");
     if(!confirmSave) return;
   }
 
@@ -154,7 +123,7 @@ function saveGame(){
   );
 
   if(dup){
-    alert("Duplicate");
+    alert("Duplicate ❌");
     return;
   }
 
@@ -167,7 +136,116 @@ function saveGame(){
     totalPlayers:Number(totalPlayers.value)||0
   });
 
+  // ✅ store last saved
   lastSavedGameNumber = game;
+
+  saveLocal();
+  update();
+}
+
+function editRecord(i){
+
+  let r=records[i];
+
+  let comp=prompt("Competition",r.competition); if(!comp)return;
+  let date=prompt("Date",r.date); if(!date)return;
+  let game=prompt("Game",r.game); if(!game)return;
+  let opp=prompt("Opponent",r.opponent); if(!opp)return;
+  let res=prompt("Result",r.result); if(!res)return;
+  let players=prompt("Players",r.totalPlayers); if(!players)return;
+
+  records[i]={competition:comp,date,game:Number(game),opponent:opp,result:res,totalPlayers:Number(players)||0};
+
+  saveLocal();
+  update();
+}
+
+function deleteSelected(){
+  if(selectedIndex<0){alert("Select row");return;}
+  records.splice(selectedIndex,1);
+  selectedIndex=-1;
+  saveLocal();
+  update();
+}
+
+function selectRow(i){
+  selectedIndex=i;
+  update();
+}
+
+function selectFinal(key){
+  selectedFinalKey=key;
+  update();
+}
+
+function deleteFinalSelected(){
+  if(!selectedFinalKey){
+    alert("Select final row");
+    return;
+  }
+  delete finalResults[selectedFinalKey];
+  selectedFinalKey=null;
+  saveLocal();
+  update();
+}
+
+function editFinal(key){
+
+  let r=finalResults[key];
+
+  let comp=prompt("Competition",r.competition); if(!comp)return;
+  let date=prompt("Date",r.date); if(!date)return;
+  let pts=prompt("Points",r.points); if(!pts)return;
+  let rank=prompt("Rank",r.rank); if(!rank)return;
+  let players=prompt("Players",r.players); if(!players)return;
+
+  delete finalResults[key];
+
+  finalResults[comp+"_"+date]={
+    competition:comp,
+    date,
+    points:Number(pts),
+    rank,
+    players
+  };
+
+  saveLocal();
+  update();
+}
+
+function saveFinal(){
+
+  let comp=competitionName.value.trim();
+  let date=competitionDate.value;
+
+  if(!comp||!date){
+    alert("Enter competition & date");
+    return;
+  }
+
+  let list=records.filter(r=>r.competition===comp && r.date===date);
+
+  let pts=0;
+  list.forEach(r=>{
+    if(r.result==="win") pts++;
+    if(r.result==="draw") pts+=0.5;
+  });
+
+  let rank=document.getElementById("rank").value;
+  let players=document.getElementById("players").value;
+
+  if(!rank||!players){
+    alert("Fill rank & players");
+    return;
+  }
+
+  finalResults[comp+"_"+date]={
+    competition:comp,
+    date,
+    points:pts,
+    rank,
+    players
+  };
 
   saveLocal();
   update();
@@ -194,6 +272,12 @@ function predict(){
     return;
   }
 
+  let totalAll = records.length;
+  let winAll = records.filter(r=>r.result==="win").length;
+  let drawAll = records.filter(r=>r.result==="draw").length;
+
+  let wrAll = (winAll + drawAll*0.5) / totalAll;
+
   let comp = competitionName.value.trim();
   let date = competitionDate.value;
 
@@ -201,16 +285,25 @@ function predict(){
     r.competition===comp && r.date===date
   );
 
-  let win=list.filter(r=>r.result==="win").length;
-  let draw=list.filter(r=>r.result==="draw").length;
-  let total=list.length;
+  let totalComp = list.length;
+  let winComp = list.filter(r=>r.result==="win").length;
+  let drawComp = list.filter(r=>r.result==="draw").length;
 
-  let rate = total ? (win+draw*0.5)/total : 0;
-  let players = Number(totalPlayers.value)||30;
+  let wrComp = totalComp
+    ? (winComp + drawComp*0.5) / totalComp
+    : 0;
 
-  let base=(1-rate)*players;
+  let players = Number(totalPlayers.value) || 30;
 
-  prediction.innerText = `Rank Estimate: ${Math.round(base*0.85)} - ${Math.round(base*1.15)}`;
+  let base = (1 - wrComp) * players;
+
+  let low = Math.max(1, Math.round(base*0.85));
+  let high = Math.max(1, Math.round(base*1.15));
+
+  prediction.innerText =
+`Win% Overall: ${(wrAll*100).toFixed(1)}%
+Win% This Competition: ${(wrComp*100).toFixed(1)}%
+Rank Estimate: ${low} - ${high}`;
 }
 
 function analysis(){
@@ -241,9 +334,77 @@ function clearAnalysis(){
   analysisResult.innerHTML="";
 }
 
+function updateFinalResult(){
+
+  let comp=competitionName.value.trim();
+  let date=competitionDate.value;
+
+  let html="";
+
+  let list = records.filter(r =>
+    r.competition===comp && r.date===date
+  );
+
+  let pts=0;
+  list.forEach(r=>{
+    if(r.result==="win") pts++;
+    if(r.result==="draw") pts+=0.5;
+  });
+
+  html+=`
+<h4>Add / Update Final Result</h4>
+Competition: ${comp || ""}<br>
+Date: ${date || ""}<br>
+Points: ${comp && date ? pts : ""}<br><br>
+
+Rank:<input id="rank"><br>
+Players:<input id="players"><br>
+
+<button class="primary" onclick="saveFinal()">Save Final Result</button>
+`;
+
+  let keys=Object.keys(finalResults);
+
+  if(keys.length){
+
+    html+=`
+<h4>Final Results</h4>
+<button class="red" onclick="deleteFinalSelected()">Delete Selected</button>
+
+<table>
+<tr>
+<th>Competition</th>
+<th>Date</th>
+<th>Points</th>
+<th>Rank</th>
+<th>Players</th>
+<th>Edit</th>
+</tr>`;
+
+    keys.forEach(k=>{
+      let r=finalResults[k];
+
+      html+=`
+<tr onclick="selectFinal('${k}')" class="${selectedFinalKey===k?'selected':''}">
+<td>${r.competition}</td>
+<td>${r.date}</td>
+<td>${r.points}</td>
+<td>${r.rank}</td>
+<td>${r.players}</td>
+<td><button onclick="event.stopPropagation();editFinal('${k}')">Edit</button></td>
+</tr>`;
+    });
+
+    html+="</table>";
+  }
+
+  finalResult.innerHTML=html;
+}
+
 function update(){
   updateSummary();
   predict();
+  updateFinalResult();
 
   let html="";
   records.forEach((r,i)=>{
@@ -253,13 +414,14 @@ function update(){
       r.result==="draw"?"orange":"redText";
 
     html+=`
-<tr>
+<tr onclick="selectRow(${i})" class="${selectedIndex===i?'selected':''}">
 <td>${r.competition}</td>
 <td>${r.date}</td>
 <td>${r.game}</td>
 <td>${r.opponent}</td>
 <td class="${color}">${r.result}</td>
 <td>${r.totalPlayers}</td>
+<td><button onclick="event.stopPropagation();editRecord(${i})">Edit</button></td>
 </tr>`;
   });
 
@@ -280,7 +442,8 @@ window.onload=()=>{
 <body>
 
 <div class="title">
-  <div>Chinese Chess Tracker</div>
+ 
+  <div>Chess Tracker</div>
 </div>
 
 <div class="card">
@@ -303,11 +466,7 @@ window.onload=()=>{
 </select>
 
 <button class="primary" onclick="saveGame()">Save Result</button>
-
-<!-- ✅ NEW CLOUD BUTTONS -->
 <button onclick="saveToCloud()">Save to Cloud</button>
-<button onclick="loadFromCloud()">Refresh Data</button>
-
 <button class="red" onclick="newGame()">New Game</button>
 </div>
 
@@ -324,12 +483,18 @@ window.onload=()=>{
 </div>
 
 <div class="card">
+<h3>Final Result</h3>
+<div id="finalResult"></div>
+</div>
+
+<div class="card">
 <h3>Game Record</h3>
+<button class="red" onclick="deleteSelected()">Delete Selected</button>
 
 <table>
 <thead>
 <tr>
-<th>Competition</th><th>Date</th><th>Game</th><th>Opponent</th><th>Result</th><th>Players</th>
+<th>Competition</th><th>Date</th><th>Game</th><th>Opponent</th><th>Result</th><th>Players</th><th>Edit</th>
 </tr>
 </thead>
 <tbody id="gameTable"></tbody>
@@ -339,4 +504,3 @@ window.onload=()=>{
 
 </body>
 </html>
-``
