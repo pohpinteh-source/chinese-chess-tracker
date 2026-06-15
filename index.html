@@ -44,30 +44,44 @@ input,select{
 
 <script>
 
-const API_URL = "https://script.google.com/macros/s/AKfycbw0E2bu49FYgVczIdnJDJhzDW6xjg_ebQuXAF2rMhczVyYIhMoDoTiwTvf1nJQPbwJi/exec";
+const API_URL = "https://script.google.com/macros/s/AKfycbx1MzwdeB0psQ1eqBpELTia4JB79QRMruZM9-RsaZS6ZmwFspo4AKXyWg_udWI_avlV/exec";
 
-function saveToCloud(){
+function saveFinalToCloud(){
 
   let comp=competitionName.value.trim();
   let date=competitionDate.value;
-  let game=Number(gameNumber.value);
-  let opp=opponent.value.trim();
-  let result=resultSelect.value;
-  let players=Number(totalPlayers.value)||0;
+
+  let list = records.filter(r =>
+    r.competition===comp && r.date===date
+  );
+
+  let pts=0;
+  list.forEach(r=>{
+    if(r.result==="win") pts++;
+    if(r.result==="draw") pts+=0.5;
+  });
+
+  let rank=document.getElementById("rank").value;
+  let players=document.getElementById("players").value;
+
+  if(!rank||!players){
+    alert("Fill rank & players");
+    return;
+  }
 
   fetch(API_URL,{
     method:"POST",
     body:JSON.stringify({
       competition:comp,
       date,
-      game,
-      opponent:opp,
-      result,
-      totalPlayers:players
+      points:pts,
+      rank,
+      totalPlayersFinal:players,
+      type:"final"
     })
   })
   .then(res=>res.text())
-  .then(()=>alert("Saved to cloud ✅"));
+  .then(()=>alert("Final result saved to cloud ✅"));
 }
 
 let records = JSON.parse(localStorage.getItem("records")) || [];
@@ -466,6 +480,7 @@ window.onload=()=>{
 </select>
 
 <button class="primary" onclick="saveGame()">Save Result</button>
+<button onclick="saveFinalToCloud()">Save Final to Cloud</button>
 <button onclick="saveToCloud()">Save to Cloud</button>
 <button class="red" onclick="newGame()">New Game</button>
 </div>
