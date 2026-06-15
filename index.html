@@ -470,10 +470,34 @@ function update(){
 }
 
 window.onload=()=>{
+
   for(let i=1;i<=15;i++){
     gameNumber.innerHTML+=`<option>${i}</option>`;
   }
-  update();
+
+  // ✅ AUTO LOAD FROM CLOUD
+  fetch(API_URL)
+  .then(res=>res.json())
+  .then(data=>{
+
+    records=[];
+
+    for(let i=1;i<data.length;i++){
+      let r=data[i];
+
+      records.push({
+        competition:r[0],
+        date:r[1],
+        game:Number(r[2]),
+        opponent:r[3],
+        result:r[4],
+        totalPlayers:Number(r[5])
+      });
+    }
+
+    saveLocal();
+    update();
+  });
 };
 
 </script>
