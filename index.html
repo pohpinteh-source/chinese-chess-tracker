@@ -46,6 +46,34 @@ input,select{
 
 const API_URL = "https://script.google.com/macros/s/AKfycby8UlknONXQM9xr3sIc5ZuhTN11Vf402PZIu3nHwhZvdmi75XIKNlz5RJX-gcpwuUgK/exec";
 
+function loadFromCloud(){
+
+  fetch(API_URL)
+  .then(res=>res.json())
+  .then(data=>{
+
+    records=[];
+
+    for(let i=1;i<data.length;i++){
+      let r=data[i];
+
+      records.push({
+        competition:r[0],
+        date:r[1],
+        game:Number(r[2]),
+        opponent:r[3],
+        result:r[4],
+        totalPlayers:Number(r[5])
+      });
+    }
+
+    saveLocal();
+    update();
+
+    alert("Data refreshed ✅");
+  });
+}
+
 function saveFinalToCloud(){
 
   let comp=competitionName.value.trim();
@@ -532,6 +560,7 @@ window.onload=()=>{
 
 <button class="primary" onclick="saveGame()">Save Result</button>
 <button class="red" onclick="newGame()">New Game</button>
+<button onclick="loadFromCloud()">Refresh Data</button>
 </div>
 
 <div class="card">
