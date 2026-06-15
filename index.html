@@ -44,7 +44,7 @@ input,select{
 
 <script>
 
-const API_URL = "https://script.google.com/macros/s/AKfycbx1MzwdeB0psQ1eqBpELTia4JB79QRMruZM9-RsaZS6ZmwFspo4AKXyWg_udWI_avlV/exec";
+const API_URL = "https://script.google.com/macros/s/AKfycbzGUBmYsjb3w4mwHLrFiDzCixYubMvIqvrrqThPyDjXTWxYWp7SL8yiVPiGjYFbInN7/exec";
 
 function saveFinalToCloud(){
 
@@ -71,14 +71,17 @@ function saveFinalToCloud(){
 
   fetch(API_URL,{
     method:"POST",
-    body:JSON.stringify({
-      competition:comp,
-      date,
-      points:pts,
-      rank,
-      totalPlayersFinal:players,
-      type:"final"
-    })
+
+body:JSON.stringify({
+  competition:comp,
+  date,
+  game,
+  opponent,
+  result,
+  totalPlayers,
+  type:"game"
+})
+
   })
   .then(res=>res.text())
   .then(()=>alert("Final result saved to cloud ✅"));
@@ -124,7 +127,6 @@ function saveGame(){
     return;
   }
 
-  // ✅ NEW: warning if game number not changed
   if(lastSavedGameNumber !== null && game === lastSavedGameNumber){
     let confirmSave = confirm("⚠️ Game number is same as previous ("+game+").\nYou might have forgotten to change it.\n\nPress OK to continue or Cancel to change it.");
     if(!confirmSave) return;
@@ -150,13 +152,26 @@ function saveGame(){
     totalPlayers:Number(totalPlayers.value)||0
   });
 
-  // ✅ store last saved
+  // ✅ AUTO SAVE TO CLOUD (GAME)
+  fetch(API_URL,{
+    method:"POST",
+    body:JSON.stringify({
+      competition:comp,
+      date,
+      game,
+      opponent:opp,
+      result:resultSelect.value,
+      totalPlayers:Number(totalPlayers.value)||0,
+      type:"game"
+    })
+  });
+
   lastSavedGameNumber = game;
 
   saveLocal();
   update();
 }
-
+``
 function editRecord(i){
 
   let r=records[i];
@@ -260,6 +275,18 @@ function saveFinal(){
     rank,
     players
   };
+// ✅ SAVE FINAL TO CLOUD (AUTO)
+  fetch(API_URL,{
+    method:"POST",
+    body:JSON.stringify({
+      competition:comp,
+      date,
+      points:pts,
+      rank,
+      totalPlayersFinal:players,
+      type:"final"
+    })
+  });
 
   saveLocal();
   update();
@@ -480,8 +507,6 @@ window.onload=()=>{
 </select>
 
 <button class="primary" onclick="saveGame()">Save Result</button>
-<button onclick="saveFinalToCloud()">Save Final to Cloud</button>
-<button onclick="saveToCloud()">Save to Cloud</button>
 <button class="red" onclick="newGame()">New Game</button>
 </div>
 
